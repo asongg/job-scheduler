@@ -1,0 +1,48 @@
+services:
+  controller:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: bash -lc "cd controller && npm i && npx ts-node src/index.ts"
+    ports:
+      - "50051:50051"
+
+  worker1:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - CONTROLLER_ADDR=controller:50051
+      - WORKER_ID=worker1
+      - CAPACITY=1
+    command: bash -lc "cd worker && npm i && npx ts-node src/index.ts"
+    depends_on:
+      - controller
+
+  worker2:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - CONTROLLER_ADDR=controller:50051
+      - WORKER_ID=worker2
+      - CAPACITY=1
+    command: bash -lc "cd worker && npm i && npx ts-node src/index.ts"
+    depends_on:
+      - controller
+
+  worker3:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - CONTROLLER_ADDR=controller:50051
+      - WORKER_ID=worker3
+      - CAPACITY=1
+    command: bash -lc "cd worker && npm i && npx ts-node src/index.ts"
+    depends_on:
+      - controller
