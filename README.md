@@ -4,7 +4,7 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 
 ---
 
-## Architecture
+## The Architecture:
 
 ### Controller (Master)
 - gRPC server
@@ -12,7 +12,6 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 - Tracks job state machine (QUEUED → ASSIGNED → SUCCEEDED/FAILED)
 - Automatically detects failed workers
 - Requeues in-flight jobs from dead workers
-- Exposes live metrics via HTTP `/metrics`
 
 ### Workers
 - Register with controller
@@ -21,14 +20,14 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 - Execute payload (`sleep:N` or `fib:N`)
 - Report results back via gRPC
 
-### Communication Model
+### How communication flows:
 - Pull-based scheduling (workers request jobs)
 - At-least-once execution semantics
 - Idempotency keys prevent duplicate completion
 
 ---
 
-## Features
+## Some features (more to be added soon):
 
 - gRPC-based distributed control plane
 - Worker heartbeats with configurable timeout
@@ -37,18 +36,14 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 - Capacity-aware scheduling per worker
 - Retry logic (max 3 attempts per job)
 - Idempotent job completion
-- Real-time metrics endpoint
-- Benchmark script for throughput measurement
 - Chaos testing (induced worker failure)
 
 ---
 
-## Performance Results
+## Results
 
 ### Environment
 - 3 workers
 - Worker capacity = 2 jobs each
 - Heartbeat interval = 1s
 - Heartbeat timeout = 3s
-
-### Sleep workload (`sleep:50`)
