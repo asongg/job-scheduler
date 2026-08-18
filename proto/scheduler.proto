@@ -12,7 +12,7 @@ service Scheduler {
 
 message RegisterWorkerRequest {
   string workerId = 1;
-  int32 capacity = 2; // max concurrent jobs worker can run
+  int32 capacity = 2;
 }
 
 message RegisterWorkerResponse {
@@ -37,7 +37,7 @@ message RequestJobRequest {
 message Job {
   string jobId = 1;
   string idempotencyKey = 2;
-  string payload = 3; // keep it simple for v1 (e.g. "sleep:500" or "fib:35")
+  string payload = 3;
 }
 
 message RequestJobResponse {
@@ -67,4 +67,3 @@ message SubmitJobResponse {
   bool ok = 1;
   string jobId = 2;
 }
-

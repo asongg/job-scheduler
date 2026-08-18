@@ -16,8 +16,8 @@ const proto = grpc.loadPackageDefinition(pkgDef) as any;
 const GRPC_ADDR = process.env.CONTROLLER_ADDR || "localhost:50051";
 const METRICS_URL = process.env.METRICS_URL || "http://localhost:8080/metrics";
 
-const N = Number(process.env.N || "500"); // number of jobs
-const MODE = process.env.MODE || "mixed"; // mixed | sleep | fib
+const N = Number(process.env.N || "500");
+const MODE = process.env.MODE || "mixed";
 
 const client = new proto.scheduler.Scheduler(GRPC_ADDR, grpc.credentials.createInsecure());
 
@@ -51,7 +51,6 @@ function payloadFor(i: number) {
 
 async function waitUntilDone(targetSucceededIncrease: number) {
   const start = Date.now();
-  // Baseline counts so we can run repeatedly without restarting controller
   const baseline = await fetchJson(METRICS_URL);
   const baseSucceeded = baseline.jobs.succeededCount as number;
 
@@ -73,7 +72,6 @@ async function waitUntilDone(targetSucceededIncrease: number) {
 
   const t0 = Date.now();
 
-  // Submit jobs
   for (let i = 0; i < N; i++) {
     await rpc(client.SubmitJob, {
       idempotencyKey: `bench-${randomUUID()}`,
@@ -84,7 +82,6 @@ async function waitUntilDone(targetSucceededIncrease: number) {
   const submitMs = Date.now() - t0;
   console.log(`Submitted ${N} jobs in ${submitMs} ms`);
 
-  // Wait for completion
   const done = await waitUntilDone(N);
   const totalMs = done.elapsedMs;
 

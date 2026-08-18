@@ -42,7 +42,6 @@ async function heartbeatLoop() {
     try {
       await rpc(client.Heartbeat, { workerId: WORKER_ID, runningJobs });
     } catch {
-      // Controller down / network issue — keep trying
     }
   }, hbIntervalMs);
 }
@@ -63,7 +62,6 @@ function fib(n: number): number {
 }
 
 async function executePayload(payload: string): Promise<string> {
-  // payload examples: "sleep:200" or "fib:25"
   const [kind, arg] = payload.split(":");
   if (kind === "sleep") {
     const ms = Number(arg || "100");
@@ -125,7 +123,6 @@ async function workLoop() {
           durationMs,
         });
       } catch {
-        // If report fails, job may be retried (at-least-once semantics)
       } finally {
         runningJobs -= 1;
       }

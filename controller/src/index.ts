@@ -38,7 +38,6 @@ const proto = grpc.loadPackageDefinition(pkgDef) as any;
 const HEARTBEAT_INTERVAL_MS = 1000;
 const HEARTBEAT_TIMEOUT_MS = 3000;
 
-// In-memory state (fine for v1)
 const workers = new Map<string, WorkerState>();
 const jobsQueue: string[] = [];
 const jobs = new Map<string, JobRecord>();
@@ -57,7 +56,6 @@ function now() {
   return Date.now();
 }
 
-// Simple job seeding (replace with script later)
 function seedJobs() {
   for (let i = 1; i <= 50; i++) {
     const jobId = `job-${i}`;
@@ -103,7 +101,6 @@ function failureDetectorLoop() {
 function metricsSnapshot() {
     const aliveWorkers = Array.from(workers.values()).filter((w) => w.alive).length;
   
-    // Count job states
     let queued = 0, assigned = 0, succeeded = 0, failed = 0;
     for (const jr of jobs.values()) {
       if (jr.state === "QUEUED") queued++;
@@ -139,7 +136,6 @@ function metricsSnapshot() {
   
 setInterval(failureDetectorLoop, 500);
 
-// gRPC handlers
 const serviceImpl = {
   RegisterWorker(
     call: grpc.ServerUnaryCall<any, any>,
@@ -184,17 +180,14 @@ const serviceImpl = {
     const w = workers.get(workerId);
     if (!w || !w.alive) return callback(null, { hasJob: false });
 
-    // Capacity gating
     if (w.runningJobs >= w.capacity) return callback(null, { hasJob: false });
 
-    // Find next QUEUED job (skip stale ids)
     while (jobsQueue.length > 0) {
       const jobId = jobsQueue.shift()!;
       const jr = jobs.get(jobId);
       if (!jr) continue;
       if (jr.state !== "QUEUED") continue;
 
-      // Idempotency: if this key already completed, drop it
       if (completedByIdempotency.has(jr.idempotencyKey)) {
         jr.state = "SUCCEEDED";
         continue;
@@ -228,7 +221,6 @@ const serviceImpl = {
 
     if (!jr) return callback(null, { ok: false });
 
-    // Idempotency: only first completion counts
     if (completedByIdempotency.has(idempotencyKey)) {
       return callback(null, { ok: true });
     }
@@ -240,7 +232,6 @@ const serviceImpl = {
     } else {
       jr.state = "FAILED";
       jobsFailed += 1;
-      // Requeue on failure with cap
       if (jr.attempts < 3) {
         jr.state = "QUEUED";
         jr.assignedTo = undefined;
@@ -263,10 +254,8 @@ const serviceImpl = {
       return callback(null, { ok: false, jobId: "" });
     }
   
-    // If caller didn't provide one, generate one (still ok)
     const idem = (idempotencyKey && String(idempotencyKey)) || `idem-${randomUUID()}`;
   
-    // If this idempotency key already completed, don't enqueue duplicates
     if (completedByIdempotency.has(idem)) {
       return callback(null, { ok: true, jobId: "" });
     }
@@ -308,7 +297,6 @@ function startMetricsServer() {
 
   
 function main() {
-  // seedJobs();
   startMetricsServer();
   const server = new grpc.Server();
   server.addService(proto.scheduler.Scheduler.service, serviceImpl);

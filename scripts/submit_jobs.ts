@@ -22,7 +22,6 @@ function rpc<TReq, TRes>(fn: Function, req: TReq): Promise<TRes> {
   });
 }
 
-// Example payloads your worker already supports: "sleep:200" or "fib:25"
 (async () => {
   const n = Number(process.env.N || "50");
   const mode = process.env.MODE || "mixed";
