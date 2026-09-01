@@ -8,6 +8,9 @@ service Scheduler {
   rpc RequestJob (RequestJobRequest) returns (RequestJobResponse);
   rpc ReportResult (ReportResultRequest) returns (ReportResultResponse);
   rpc SubmitJob (SubmitJobRequest) returns (SubmitJobResponse);
+  rpc RequestJobs (RequestJobsRequest) returns (RequestJobsResponse);
+  rpc ReportResults (ReportResultsRequest) returns (ReportResultsResponse);
+  rpc SubmitJobs (SubmitJobsRequest) returns (SubmitJobsResponse);
 }
 
 message RegisterWorkerRequest {
@@ -34,6 +37,11 @@ message RequestJobRequest {
   string workerId = 1;
 }
 
+message RequestJobsRequest {
+  string workerId = 1;
+  int32 maxJobs = 2;
+}
+
 message Job {
   string jobId = 1;
   string idempotencyKey = 2;
@@ -43,6 +51,10 @@ message Job {
 message RequestJobResponse {
   bool hasJob = 1;
   Job job = 2;
+}
+
+message RequestJobsResponse {
+  repeated Job jobs = 1;
 }
 
 message ReportResultRequest {
@@ -58,6 +70,14 @@ message ReportResultResponse {
   bool ok = 1;
 }
 
+message ReportResultsRequest {
+  repeated ReportResultRequest results = 1;
+}
+
+message ReportResultsResponse {
+  repeated ReportResultResponse results = 1;
+}
+
 message SubmitJobRequest {
   string idempotencyKey = 1;
   string payload = 2;
@@ -66,4 +86,12 @@ message SubmitJobRequest {
 message SubmitJobResponse {
   bool ok = 1;
   string jobId = 2;
+}
+
+message SubmitJobsRequest {
+  repeated SubmitJobRequest jobs = 1;
+}
+
+message SubmitJobsResponse {
+  repeated SubmitJobResponse results = 1;
 }

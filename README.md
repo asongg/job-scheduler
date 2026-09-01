@@ -23,6 +23,7 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 
 ### Communication Model
 - Pull-based scheduling (workers request jobs)
+- Batched submit, request, and result APIs for lower per-job RPC overhead
 - At-least-once execution semantics
 - Idempotency keys prevent duplicate completion
 
@@ -36,10 +37,31 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 - Automatic requeue of in-flight jobs
 - Capacity-aware scheduling per worker
 - Retry logic (max 3 attempts per job)
-- Idempotent job completion
+- Idempotent job submission and completion
 - Real-time metrics endpoint
 - Benchmark script for throughput measurement
 - Chaos testing (induced worker failure)
+
+---
+
+## Useful Commands
+
+```bash
+npm test
+npm run typecheck
+N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npx ts-node scripts/benchmark.ts
+```
+
+## Configuration
+
+- `HEARTBEAT_INTERVAL_MS`: interval returned to workers for heartbeat cadence
+- `HEARTBEAT_TIMEOUT_MS`: controller timeout before marking a worker dead
+- `MAX_ATTEMPTS`: max attempts before a job becomes a terminal failure
+- `METRICS_PORT`: HTTP metrics server port
+- `GRPC_ADDR`: controller bind address
+- `CAPACITY`: worker-local concurrency
+- `IDLE_POLL_MS`: worker delay when no jobs are available
+- `FULL_POLL_MS`: worker delay while at capacity
 
 ---
 

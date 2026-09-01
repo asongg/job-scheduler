@@ -15,6 +15,8 @@ const proto = grpc.loadPackageDefinition(pkgDef) as any;
 const CONTROLLER_ADDR = process.env.CONTROLLER_ADDR || "controller:50051";
 const WORKER_ID = process.env.WORKER_ID || `worker-${randomUUID().slice(0, 8)}`;
 const CAPACITY = Number(process.env.CAPACITY || "2");
+const IDLE_POLL_MS = Number(process.env.IDLE_POLL_MS || "100");
+const FULL_POLL_MS = Number(process.env.FULL_POLL_MS || "25");
 
 const client = new proto.scheduler.Scheduler(
   CONTROLLER_ADDR,
@@ -81,52 +83,56 @@ async function executePayload(payload: string): Promise<string> {
 async function workLoop() {
   while (true) {
     if (runningJobs >= CAPACITY) {
-      await sleep(25);
+      await sleep(FULL_POLL_MS);
       continue;
     }
 
     let res: any;
     try {
-      res = await rpc(client.RequestJob, { workerId: WORKER_ID });
+      res = await rpc(client.RequestJobs, { workerId: WORKER_ID, maxJobs: CAPACITY - runningJobs });
     } catch {
       await sleep(200);
       continue;
     }
 
-    if (!res.hasJob) {
-      await sleep(100);
+    const jobs = Array.isArray(res.jobs) ? res.jobs : [];
+    if (jobs.length === 0) {
+      await sleep(IDLE_POLL_MS);
       continue;
     }
 
-    const job = res.job;
-    runningJobs += 1;
+    for (const job of jobs) {
+      runningJobs += 1;
 
-    (async () => {
-      const t0 = Date.now();
-      let success = true;
-      let output = "";
-      try {
-        output = await executePayload(job.payload);
-      } catch (e: any) {
-        success = false;
-        output = String(e?.message || e);
-      }
-      const durationMs = Date.now() - t0;
+      (async () => {
+        const t0 = Date.now();
+        let success = true;
+        let output = "";
+        try {
+          output = await executePayload(job.payload);
+        } catch (e: any) {
+          success = false;
+          output = String(e?.message || e);
+        }
+        const durationMs = Date.now() - t0;
 
-      try {
-        await rpc(client.ReportResult, {
-          workerId: WORKER_ID,
-          jobId: job.jobId,
-          idempotencyKey: job.idempotencyKey,
-          success,
-          output,
-          durationMs,
-        });
-      } catch {
-      } finally {
-        runningJobs -= 1;
-      }
-    })();
+        try {
+          await rpc(client.ReportResults, {
+            results: [{
+              workerId: WORKER_ID,
+              jobId: job.jobId,
+              idempotencyKey: job.idempotencyKey,
+              success,
+              output,
+              durationMs,
+            }],
+          });
+        } catch {
+        } finally {
+          runningJobs -= 1;
+        }
+      })();
+    }
   }
 }
 

@@ -18,6 +18,7 @@ const METRICS_URL = process.env.METRICS_URL || "http://localhost:8080/metrics";
 
 const N = Number(process.env.N || "500");
 const MODE = process.env.MODE || "mixed";
+const SUBMIT_BATCH_SIZE = Number(process.env.SUBMIT_BATCH_SIZE || "100");
 
 const client = new proto.scheduler.Scheduler(GRPC_ADDR, grpc.credentials.createInsecure());
 
@@ -72,11 +73,15 @@ async function waitUntilDone(targetSucceededIncrease: number) {
 
   const t0 = Date.now();
 
-  for (let i = 0; i < N; i++) {
-    await rpc(client.SubmitJob, {
-      idempotencyKey: `bench-${randomUUID()}`,
-      payload: payloadFor(i),
-    });
+  for (let i = 0; i < N; i += SUBMIT_BATCH_SIZE) {
+    const jobs = [];
+    for (let j = i; j < Math.min(i + SUBMIT_BATCH_SIZE, N); j++) {
+      jobs.push({
+        idempotencyKey: `bench-${randomUUID()}`,
+        payload: payloadFor(j),
+      });
+    }
+    await rpc(client.SubmitJobs, { jobs });
   }
 
   const submitMs = Date.now() - t0;
