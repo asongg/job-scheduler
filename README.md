@@ -128,8 +128,10 @@ The benchmark reports submit latency, estimated end-to-end completion latency, t
 | 1,000 | 50 | 684.43ms | 1,461.08 jobs/sec | 622.86ms |
 | 5,000 | 1 | 4,307.98ms | 1,160.64 jobs/sec | 4,207.26ms |
 | 5,000 | 50 | 2,330.51ms | 2,145.46 jobs/sec | 2,229.42ms |
+| 10,000 | 1 | 11,196.43ms | 893.14 jobs/sec | 10,930.09ms |
+| 10,000 | 50 | 6,853.67ms | 1,459.07 jobs/sec | 6,461.44ms |
 
-In the larger 5,000-job Postgres run, worker-side result batching improved throughput by about 85%.
+In the 5,000-job Postgres run, worker-side result batching improved throughput by about 85%. In the 10,000-job run, it improved throughput by about 63%.
 
 ### Baseline Template
 
