@@ -1,6 +1,6 @@
 # Distributed gRPC Job Scheduler
 
-A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Added features such as worker heartbeats, failure detection, at-least-once execution, and performance benchmarking.
+A fault-tolerant distributed job scheduler built with **TypeScript + gRPC**, renewable attempt leases, retry backoff, dead-letter replay, worker heartbeats, and optional Postgres-backed durability.
 
 ---
 
@@ -45,7 +45,7 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 - Dead-letter listing and replay for failed jobs
 - Exponential retry backoff to avoid hot-looping failing jobs
 - Real-time metrics endpoint
-- Benchmark script for throughput measurement
+- Benchmark script for throughput and latency measurement
 - Chaos testing (induced worker failure)
 
 ---
@@ -58,6 +58,8 @@ TEST_DATABASE_URL=postgres://scheduler:scheduler@localhost:5432/scheduler npm ru
 npm run typecheck
 docker compose up
 N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npx ts-node scripts/benchmark.ts
+N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npm run benchmark
+RESULT_BATCH_SIZE=1 N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 JSON_OUTPUT=1 npm run --silent benchmark > benchmark-baseline.json
 ```
 
 ## Configuration
@@ -76,14 +78,21 @@ N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npx ts-node scripts/benchmark.ts
 - `CAPACITY`: worker-local concurrency
 - `IDLE_POLL_MS`: worker delay when no jobs are available
 - `FULL_POLL_MS`: worker delay while at capacity
+- `REGISTER_RETRY_MS`: worker delay before retrying registration if the controller is not ready
 - `LEASE_RENEW_INTERVAL_MS`: how often workers check running attempts for renewal
 - `LEASE_RENEW_THRESHOLD_MS`: renew attempts when this close to lease expiry
+- `RESULT_BATCH_SIZE`: worker result buffer size before flushing `ReportResults`
+- `RESULT_FLUSH_INTERVAL_MS`: max worker result buffering delay before flushing
+- `POLL_INTERVAL_MS`: benchmark metrics polling interval
+- `JSON_OUTPUT`: set to `1` for machine-readable benchmark output
 
 ## Storage Notes
 
-The controller runs with `SCHEDULER_BACKEND=memory` by default. In memory mode, set `STATE_FILE` to enable JSON snapshot recovery, or set `DATABASE_URL` to store the same snapshot in Postgres.
+The controller runs with `SCHEDULER_BACKEND=memory` by default when launched directly. In memory mode, set `STATE_FILE` to enable JSON snapshot recovery, or set `DATABASE_URL` to store the same snapshot in Postgres.
 
 Use `SCHEDULER_BACKEND=postgres DATABASE_URL=postgres://...` to run jobs directly from normalized Postgres rows. In that mode, Postgres owns submit, claim, report, idempotency, attempt leases, lease renewal, expired lease requeue, and job metrics.
+
+`docker compose up` starts Postgres, the controller with `SCHEDULER_BACKEND=postgres`, three workers, gRPC on `localhost:50051`, and metrics on `localhost:8080/metrics`.
 
 Retries are delayed by exponential backoff. Fresh jobs can still run while failed retries are waiting for their next available time.
 
@@ -97,9 +106,48 @@ Failed jobs stay queryable through the scheduler API and can be replayed back in
 
 ## Performance Results
 
+The benchmark reports submit latency, estimated end-to-end completion latency, throughput, submit RPC count, and metrics poll count. Completion latency is estimated from metrics deltas, so it is best used for relative comparisons across benchmark runs rather than exact per-job tracing.
+
 ### Environment
 
+- MacBook local Docker Desktop
+- Postgres backend via `docker compose`
 - 3 workers
-- Worker capacity = 2 jobs each
+- Worker capacity = 50 jobs each
 - Heartbeat interval = 1s
 - Heartbeat timeout = 3s
+- Workload = `sleep:10`
+- Submit batch size = 100
+- Metrics poll interval = 25ms
+
+### Current Results
+
+| Jobs | Result batch size | Total time | Throughput | Estimated p95 completion latency |
+| ---: | ---: | ---: | ---: | ---: |
+| 1,000 | 1 | 1,181.17ms | 846.62 jobs/sec | 1,152.98ms |
+| 1,000 | 50 | 684.43ms | 1,461.08 jobs/sec | 622.86ms |
+| 5,000 | 1 | 4,307.98ms | 1,160.64 jobs/sec | 4,207.26ms |
+| 5,000 | 50 | 2,330.51ms | 2,145.46 jobs/sec | 2,229.42ms |
+
+In the larger 5,000-job Postgres run, worker-side result batching improved throughput by about 85%.
+
+### Baseline Template
+
+Run:
+
+```bash
+docker compose up
+RESULT_BATCH_SIZE=1 docker compose up
+N=10000 MODE=sleep SUBMIT_BATCH_SIZE=100 JSON_OUTPUT=1 npm run --silent benchmark > benchmark-baseline.json
+```
+
+Recommended comparisons:
+
+| Experiment | What to compare |
+| --- | --- |
+| start 1, 2, or 3 worker services, or add more worker service entries | throughput and p95 completion latency |
+| `WORKER_CAPACITY=1/2/4/8 docker compose up` | capacity scaling |
+| `SUBMIT_BATCH_SIZE=1/10/50/100` | submit batching impact |
+| `RESULT_BATCH_SIZE=1/10/50 RESULT_FLUSH_INTERVAL_MS=25` | result batching impact |
+| `SCHEDULER_BACKEND=memory` vs `postgres` | backend throughput and latency |
+| kill one worker during a run | recovery time and recovered jobs |
