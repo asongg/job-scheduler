@@ -1,15 +1,16 @@
-import type { JobScheduler } from "./scheduler";
+import type { JobStore } from "./jobStore";
 import type { WorkerRegistry } from "./registry";
 
-export function metricsSnapshot(scheduler: JobScheduler, registry: WorkerRegistry) {
+export async function metricsSnapshot(jobStore: JobStore, registry: WorkerRegistry) {
   return {
     time: new Date().toISOString(),
     workers: registry.snapshot(),
-    queueDepth: scheduler.queueDepth(),
-    jobs: scheduler.metrics(),
+    queueDepth: await jobStore.queueDepth(),
+    queue: await jobStore.queueMetrics(),
+    jobs: await jobStore.metrics(),
     faults: {
       ...registry.faultSnapshot(),
-      ...scheduler.faultMetrics(),
+      ...(await jobStore.faultMetrics()),
     },
   };
 }

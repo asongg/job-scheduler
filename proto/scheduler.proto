@@ -11,6 +11,10 @@ service Scheduler {
   rpc RequestJobs (RequestJobsRequest) returns (RequestJobsResponse);
   rpc ReportResults (ReportResultsRequest) returns (ReportResultsResponse);
   rpc SubmitJobs (SubmitJobsRequest) returns (SubmitJobsResponse);
+  rpc ExtendLease (ExtendLeaseRequest) returns (ExtendLeaseResponse);
+  rpc ExtendLeases (ExtendLeasesRequest) returns (ExtendLeasesResponse);
+  rpc ListFailedJobs (ListFailedJobsRequest) returns (ListFailedJobsResponse);
+  rpc ReplayFailedJob (ReplayFailedJobRequest) returns (ReplayFailedJobResponse);
 }
 
 message RegisterWorkerRequest {
@@ -46,6 +50,8 @@ message Job {
   string jobId = 1;
   string idempotencyKey = 2;
   string payload = 3;
+  string attemptId = 4;
+  int64 leaseExpiresAtMs = 5;
 }
 
 message RequestJobResponse {
@@ -64,6 +70,7 @@ message ReportResultRequest {
   bool success = 4;
   string output = 5;
   int64 durationMs = 6;
+  string attemptId = 7;
 }
 
 message ReportResultResponse {
@@ -76,6 +83,26 @@ message ReportResultsRequest {
 
 message ReportResultsResponse {
   repeated ReportResultResponse results = 1;
+}
+
+message ExtendLeaseRequest {
+  string workerId = 1;
+  string jobId = 2;
+  string idempotencyKey = 3;
+  string attemptId = 4;
+}
+
+message ExtendLeaseResponse {
+  bool ok = 1;
+  int64 leaseExpiresAtMs = 2;
+}
+
+message ExtendLeasesRequest {
+  repeated ExtendLeaseRequest leases = 1;
+}
+
+message ExtendLeasesResponse {
+  repeated ExtendLeaseResponse results = 1;
 }
 
 message SubmitJobRequest {
@@ -94,4 +121,30 @@ message SubmitJobsRequest {
 
 message SubmitJobsResponse {
   repeated SubmitJobResponse results = 1;
+}
+
+message FailedJob {
+  string jobId = 1;
+  string idempotencyKey = 2;
+  string payload = 3;
+  int32 attempts = 4;
+  string lastFailureReason = 5;
+}
+
+message ListFailedJobsRequest {
+  int32 limit = 1;
+}
+
+message ListFailedJobsResponse {
+  repeated FailedJob jobs = 1;
+}
+
+message ReplayFailedJobRequest {
+  string jobId = 1;
+  bool preserveAttempts = 2;
+}
+
+message ReplayFailedJobResponse {
+  bool ok = 1;
+  string jobId = 2;
 }

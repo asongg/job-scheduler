@@ -38,8 +38,12 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 - Automatic failure detection
 - Automatic requeue of in-flight jobs
 - Capacity-aware scheduling per worker
-- Retry logic (max 3 attempts per job)
+- Retry logic for reported failures, expired leases, and dead-worker recovery
 - Idempotent job submission and completion
+- Attempt leases reject stale worker results after requeue/reassignment
+- Worker lease renewal for long-running attempts
+- Dead-letter listing and replay for failed jobs
+- Exponential retry backoff to avoid hot-looping failing jobs
 - Real-time metrics endpoint
 - Benchmark script for throughput measurement
 - Chaos testing (induced worker failure)
@@ -50,7 +54,9 @@ A fault-tolerant distributed job scheduler, built with **TypeScript + gRPC**. Ad
 
 ```bash
 npm test
+TEST_DATABASE_URL=postgres://scheduler:scheduler@localhost:5432/scheduler npm run test:postgres
 npm run typecheck
+docker compose up
 N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npx ts-node scripts/benchmark.ts
 ```
 
@@ -59,11 +65,33 @@ N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npx ts-node scripts/benchmark.ts
 - `HEARTBEAT_INTERVAL_MS`: interval returned to workers for heartbeat cadence
 - `HEARTBEAT_TIMEOUT_MS`: controller timeout before marking a worker dead
 - `MAX_ATTEMPTS`: max attempts before a job becomes a terminal failure
+- `JOB_LEASE_MS`: max time an assigned attempt can run before being requeued
+- `RETRY_BACKOFF_BASE_MS`: first retry delay; each later retry doubles from this base
+- `RETRY_BACKOFF_MAX_MS`: cap for retry backoff delays
 - `METRICS_PORT`: HTTP metrics server port
 - `GRPC_ADDR`: controller bind address
+- `SCHEDULER_BACKEND`: `memory` or `postgres`
+- `DATABASE_URL`: optional Postgres snapshot persistence connection string
+- `STATE_FILE`: optional controller snapshot path for restart recovery
 - `CAPACITY`: worker-local concurrency
 - `IDLE_POLL_MS`: worker delay when no jobs are available
 - `FULL_POLL_MS`: worker delay while at capacity
+- `LEASE_RENEW_INTERVAL_MS`: how often workers check running attempts for renewal
+- `LEASE_RENEW_THRESHOLD_MS`: renew attempts when this close to lease expiry
+
+## Storage Notes
+
+The controller runs with `SCHEDULER_BACKEND=memory` by default. In memory mode, set `STATE_FILE` to enable JSON snapshot recovery, or set `DATABASE_URL` to store the same snapshot in Postgres.
+
+Use `SCHEDULER_BACKEND=postgres DATABASE_URL=postgres://...` to run jobs directly from normalized Postgres rows. In that mode, Postgres owns submit, claim, report, idempotency, attempt leases, lease renewal, expired lease requeue, and job metrics.
+
+Retries are delayed by exponential backoff. Fresh jobs can still run while failed retries are waiting for their next available time.
+
+The metrics endpoint keeps `queueDepth` for compatibility and also exposes `queue.total`, `queue.ready`, and `queue.delayed` so delayed retries are visible separately from work that can run immediately.
+
+Failed jobs stay queryable through the scheduler API and can be replayed back into the queue. By default, replay resets the attempt counter so the job gets a fresh retry budget; set `preserveAttempts` to keep the old count.
+
+[db/postgres/schema.sql](db/postgres/schema.sql) contains the Postgres schema. Snapshot persistence uses `scheduler_snapshots`; the live Postgres backend uses `jobs` and `job_attempts`.
 
 ---
 

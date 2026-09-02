@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test -r ts-node/register test/**/*.test.ts",
+    "test:postgres": "node --test -r ts-node/register test/postgresIntegration.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
@@ -20,10 +21,12 @@
   "homepage": "https://github.com/asongg/dist-scheduler#readme",
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",
-    "@grpc/proto-loader": "^0.8.0"
+    "@grpc/proto-loader": "^0.8.0",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
+    "@types/pg": "^8.23.1",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
