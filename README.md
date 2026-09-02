@@ -60,6 +60,7 @@ docker compose up
 N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npx ts-node scripts/benchmark.ts
 N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 npm run benchmark
 RESULT_BATCH_SIZE=1 N=1000 MODE=sleep SUBMIT_BATCH_SIZE=100 JSON_OUTPUT=1 npm run --silent benchmark > benchmark-baseline.json
+MATRIX_REPEATS=5 MATRIX_JOBS=5000,10000 MATRIX_RESULT_BATCHES=1,50 npm run benchmark:matrix
 ```
 
 ## Configuration
@@ -122,16 +123,16 @@ The benchmark reports submit latency, estimated end-to-end completion latency, t
 
 ### Current Results
 
-| Jobs | Result batch size | Total time | Throughput | Estimated p95 completion latency |
-| ---: | ---: | ---: | ---: | ---: |
-| 1,000 | 1 | 1,181.17ms | 846.62 jobs/sec | 1,152.98ms |
-| 1,000 | 50 | 684.43ms | 1,461.08 jobs/sec | 622.86ms |
-| 5,000 | 1 | 4,307.98ms | 1,160.64 jobs/sec | 4,207.26ms |
-| 5,000 | 50 | 2,330.51ms | 2,145.46 jobs/sec | 2,229.42ms |
-| 10,000 | 1 | 11,196.43ms | 893.14 jobs/sec | 10,930.09ms |
-| 10,000 | 50 | 6,853.67ms | 1,459.07 jobs/sec | 6,461.44ms |
+Each configuration below was run five times against a fresh `jobs`/`job_attempts` table.
 
-In the 5,000-job Postgres run, worker-side result batching improved throughput by about 85%. In the 10,000-job run, it improved throughput by about 63%.
+| Jobs | Result batch size | Median throughput | Min throughput | Max throughput | Std dev | Median p95 completion latency |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 5,000 | 1 | 1,573.53 jobs/sec | 1,126.03 | 1,743.90 | 207.47 | 3,058.81ms |
+| 5,000 | 50 | 1,983.75 jobs/sec | 1,688.05 | 2,307.43 | 230.21 | 2,391.05ms |
+| 10,000 | 1 | 1,353.22 jobs/sec | 1,244.48 | 1,424.25 | 60.76 | 7,107.95ms |
+| 10,000 | 50 | 1,959.07 jobs/sec | 1,806.73 | 2,318.41 | 186.41 | 4,901.31ms |
+
+Worker-side result batching improved median throughput by about 26% in the 5,000-job run and 45% in the 10,000-job run.
 
 ### Baseline Template
 
